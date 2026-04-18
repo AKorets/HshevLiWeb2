@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="/demo/">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="ILS ⇄ USDT exchange calculator with fee handling for crypto traders.">
+
+  <!-- Prevent browsers from caching index.html so a new deployment is always detected -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="HashevLi">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>HashevLi</title>
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Google Analytics 4 — one shared property, three streams -->
+  <script>
+    (function() {
+      var hostname = window.location.hostname;
+      var pathname = window.location.pathname;
+
+      var id, env, site;
+
+      if (pathname.indexOf('/demo/') === 0) {
+        id   = 'G-85NSC2WDRP';   // stream: demo
+        env  = 'demo';
+        site = 'ondigitalocean-demo';
+      } else if (hostname === 'whale-app-5eqr4.ondigitalocean.app') {
+        id   = 'G-629DK0TLH6';   // stream: ondigitalocean
+        env  = 'staging';
+        site = 'ondigitalocean';
+      } else {
+        id   = 'G-1KCLHVEVDZ';   // stream: prod-old
+        env  = 'production';
+        site = 'hashevli.co.il';
+      }
+
+      var s = document.createElement('script');
+      s.async = true;
+      s.src = 'https://www.googletagmanager.com/gtag/js?id=' + id;
+      document.head.appendChild(s);
+
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){ dataLayer.push(arguments); }
+      window.gtag = gtag;
+
+      gtag('js', new Date());
+      gtag('config', id);
+
+      // Stamp every hit with environment + site_name custom dimensions
+      gtag('event', 'page_view', {
+        environment: env,
+        site_name:   site
+      });
+    })();
+  </script>
+</head>
+<body>
+  <!-- Service worker update banner (hidden until a new version is detected) -->
+  <div id="sw-update-banner" style="display:none; position:fixed; bottom:0; left:0; right:0; background:#1565c0; color:#fff; padding:12px 16px; z-index:99999; align-items:center; justify-content:space-between; font-family:sans-serif; font-size:14px; box-shadow:0 -2px 8px rgba(0,0,0,0.3);">
+    <span>&#x1F504; New version available</span>
+    <button id="sw-reload-btn" style="background:#fff; color:#1565c0; border:none; padding:6px 16px; border-radius:4px; cursor:pointer; font-weight:600; font-size:13px;">Reload</button>
+  </div>
+
+  <script>
+    console.log('[BOOT] index.html loaded', window.location.href);
+
+    window.addEventListener('error', function (event) {
+      console.error('[BOOT] window.error', {
+        message: event.message,
+        source: event.filename,
+        line: event.lineno,
+        column: event.colno,
+        error: event.error
+      });
+    });
+
+    window.addEventListener('unhandledrejection', function (event) {
+      console.error('[BOOT] unhandledrejection', event.reason);
+    });
+
+    // ── Service Worker update flow ──────────────────────────────────────────────
+    //
+    // Correct sequence for activating a waiting SW immediately:
+    //   1. Detect waiting SW (either already waiting or via updatefound)
+    //   2. User clicks Reload → send SKIP_WAITING to the waiting SW
+    //   3. New SW calls self.skipWaiting() and takes control
+    //   4. controllerchange fires → reload the page once into the new version
+    //
+    // The SW itself must handle the 'message' event and call self.skipWaiting().
+    // See the post-build patch in scripts/Publish-Frontend-*.ps1.
+    // ──────────────────────────────────────────────────────────────────────────
+
+    if ('serviceWorker' in navigator) {
+      var _swReloading = false;  // guard against double-reload on controllerchange
+      var _swReg = null;         // reference kept for the Reload button
+
+      function _swShowBanner(reg) {
+        console.log('[SW] Waiting worker detected — showing update banner');
+        _swReg = reg;
+        var banner = document.getElementById('sw-update-banner');
+        if (banner) banner.style.display = 'flex';
+      }
+
+      // When a new SW takes control, reload once into the new version.
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        console.log('[SW] controllerchange fired — reloading into new version');
+        if (_swReloading) return;
+        _swReloading = true;
+        window.location.reload();
+      });
+
+      // Reload button: tell the waiting SW to skip waiting, then let
+      // controllerchange handle the reload (do NOT call reload() directly here).
+      document.getElementById('sw-reload-btn').addEventListener('click', function () {
+        if (_swReg && _swReg.waiting) {
+          console.log('[SW] Sending SKIP_WAITING to waiting worker');
+          _swReg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        } else {
+          // Fallback: no waiting worker reference — do a hard reload.
+          console.warn('[SW] No waiting worker found; falling back to hard reload');
+          window.location.reload(true);
+        }
+      });
+
+      // Use navigator.serviceWorker.ready so we always get a resolved registration.
+      navigator.serviceWorker.ready.then(function (reg) {
+        console.log('[SW] Service worker ready', reg);
+        _swReg = reg;
+
+        // Handle the case where a worker is already waiting on page load
+        // (e.g. the user had the tab open when the previous SW was installed).
+        if (reg.waiting) {
+          console.log('[SW] Waiting worker already present on page load');
+          _swShowBanner(reg);
+        }
+
+        // Listen for future updates installed during this session.
+        reg.addEventListener('updatefound', function () {
+          var newWorker = reg.installing;
+          console.log('[SW] updatefound — new worker installing');
+          newWorker.addEventListener('statechange', function () {
+            console.log('[SW] New worker state:', newWorker.state);
+            // 'installed' + a live controller means this is an update (not first install).
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              _swShowBanner(reg);
+            }
+          });
+        });
+
+        // Proactively check for updates: on load, every 60 s, and on tab focus.
+        reg.update();
+        setInterval(function () { reg.update(); }, 60000);
+      }).catch(function (err) {
+        console.error('[SW] navigator.serviceWorker.ready rejected', err);
+      });
+
+      // Also trigger an update check when the user switches back to the tab
+      // (covers mobile "background → foreground" scenario).
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible' && _swReg) {
+          console.log('[SW] Tab visible — checking for SW update');
+          _swReg.update();
+        }
+      });
+    }
+  </script>
+
+  <!--
+    You can customize the "flutter_bootstrap.js" script.
+    This is useful to provide a custom configuration to the Flutter loader
+    or to give the user feedback during the initialization process.
+
+    For more details:
+    * https://docs.flutter.dev/platform-integration/web/initialization
+  -->
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
