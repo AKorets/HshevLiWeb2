@@ -1,0 +1,54 @@
+# ── Flutter Web Cache Control ─────────────────────────────────────────────────
+#
+# index.html and the Flutter bootstrap/service-worker entry points must never
+# be served from cache so that browsers always fetch the latest version on
+# deployment.  Content-addressed assets (anything with a hash in the path, e.g.
+# assets/AssetManifest.bin.json) can be cached for a long time because their
+# URL changes whenever the content changes.
+#
+# This file is uploaded alongside the Flutter build output to both the demo
+# (/demo/) and production (/) paths by the Publish-Frontend-* scripts.
+# ─────────────────────────────────────────────────────────────────────────────
+
+<IfModule mod_headers.c>
+
+  # ── No-cache: entry points and service-worker files ────────────────────────
+  # These files are small and must always reflect the latest deployment.
+  <FilesMatch "^(index\.html|flutter_bootstrap\.js|flutter_service_worker\.js|manifest\.json|version\.json)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+
+  # ── Long-cache: content-addressed Flutter assets ───────────────────────────
+  # Flutter's build pipeline fingerprints these files so their URL changes on
+  # every rebuild.  Safe to cache for one year.
+  <FilesMatch "\.(js|css|png|jpg|jpeg|gif|ico|woff|woff2|ttf|otf|svg|webp)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # Override: main.dart.js is NOT content-hashed in the filename; keep it fresh
+  <FilesMatch "^main\.dart\.js$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+
+</IfModule>
+
+# Fallback for servers without mod_headers (sets Expires via mod_expires)
+<IfModule mod_expires.c>
+  ExpiresActive On
+
+  # Default: do not cache
+  ExpiresDefault "access plus 0 seconds"
+
+  # Long cache for binary/media assets that are content-addressed
+  ExpiresByType image/png   "access plus 1 year"
+  ExpiresByType image/jpeg  "access plus 1 year"
+  ExpiresByType image/gif   "access plus 1 year"
+  ExpiresByType image/webp  "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType font/woff2  "access plus 1 year"
+  ExpiresByType font/woff   "access plus 1 year"
+</IfModule>
