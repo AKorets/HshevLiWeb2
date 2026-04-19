@@ -1,8 +1,11 @@
 import asyncio
+import logging
 from datetime import datetime, timezone
 
 from .models import RateSnapshot
 from .xe_service import fetch_rates_from_xe
+
+logger = logging.getLogger(__name__)
 
 CACHE_FRESH_SECONDS = 300   # auto-refresh every 5 minutes
 REFRESH_GUARD_SECONDS = 60  # minimum interval for manual refresh
@@ -44,6 +47,7 @@ class RatesCache:
             rates, error = await fetch_rates_from_xe()
             if rates is None:
                 self.last_fetch_error = error
+                logger.error("Cache refresh failed: %s", error)
                 return False
 
             self.ils_to_usdt = rates["ils_to_usdt"]
@@ -54,6 +58,7 @@ class RatesCache:
             self.last_fetch_error = None
 
             await self._persist()
+            logger.info("Cache refreshed at %s", self.fetched_at.isoformat())
             return True
 
     async def _persist(self) -> None:
@@ -75,7 +80,13 @@ class RatesCache:
     async def try_manual_refresh(self) -> dict:
         """Attempt a manual refresh. Enforces the 60-second guard."""
         if self.seconds_since_fetch < REFRESH_GUARD_SECONDS:
+            logger.info(
+                "Manual refresh blocked: last fetch was %.1fs ago (guard=%ds)",
+                self.seconds_since_fetch,
+                REFRESH_GUARD_SECONDS,
+            )
             return {**self.snapshot(), "refreshed": False, "reason": "too_soon"}
+        logger.info("Manual refresh triggered")
         success = await self.fetch()
         return {**self.snapshot(), "refreshed": success}
 
