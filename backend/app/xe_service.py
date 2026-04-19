@@ -5,7 +5,46 @@ from .config import settings
 logger = logging.getLogger(__name__)
 
 XE_API_URL = "https://xecdapi.xe.com/v1/convert_from.json"
+FALLBACK_API_URL = "https://open.er-api.com/v6/latest/USD"
 CURRENCIES = ["ILS", "USD", "EUR", "GBP", "RUB", "CHF", "PLN", "HUF", "JPY"]
+
+
+async def fetch_rates_from_fallback() -> tuple[dict | None, str | None]:
+    """Fetch rates from open.er-api.com (free fallback, no auth required)."""
+    logger.info("Fallback call: fetching rates from %s", FALLBACK_API_URL)
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(FALLBACK_API_URL, timeout=10.0)
+            resp.raise_for_status()
+            data = resp.json()
+
+        raw = data.get("rates", {})
+        rates_map: dict[str, float] = {"USD": 1.0, "USDT": 1.0}
+        for code in CURRENCIES:
+            if code != "USD" and code in raw:
+                rates_map[code] = float(raw[code])
+
+        result: dict = {
+            "usd_to_usdt": 1.0,
+            "ils_to_usdt": rates_map.get("ILS", 0.0),
+            "euro_to_usdt": rates_map.get("EUR", 0.0),
+            "rates": rates_map,
+        }
+        logger.info(
+            "Fallback call success: ils_to_usdt=%.4f euro_to_usdt=%.4f",
+            result["ils_to_usdt"],
+            result["euro_to_usdt"],
+        )
+        return result, None
+    except httpx.HTTPStatusError as exc:
+        body = exc.response.text[:300]
+        error = f"Fallback API HTTP {exc.response.status_code}: {body}"
+        logger.error("Fallback call failed: %s", error)
+        return None, error
+    except Exception as exc:
+        error = f"Fallback API error: {type(exc).__name__}: {exc}"
+        logger.error("Fallback call failed: %s", error)
+        return None, error
 
 
 async def fetch_rates_from_xe() -> tuple[dict | None, str | None]:

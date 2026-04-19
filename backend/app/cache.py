@@ -2,8 +2,9 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 
+from .config import settings
 from .models import RateSnapshot
-from .xe_service import fetch_rates_from_xe
+from .xe_service import fetch_rates_from_fallback, fetch_rates_from_xe
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +43,12 @@ class RatesCache:
         }
 
     async def fetch(self) -> bool:
-        """Fetch from XE API, update in-memory cache, and persist to DB. Returns True on success."""
+        """Fetch rates, update in-memory cache, and persist to DB. Returns True on success."""
         async with self._lock:
-            rates, error = await fetch_rates_from_xe()
+            if settings.rates_fallback:
+                rates, error = await fetch_rates_from_fallback()
+            else:
+                rates, error = await fetch_rates_from_xe()
             if rates is None:
                 self.last_fetch_error = error
                 logger.error("Cache refresh failed: %s", error)
