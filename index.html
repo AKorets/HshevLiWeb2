@@ -37,7 +37,7 @@
   <title>HashevLi</title>
   <link rel="manifest" href="manifest.json">
 
-  <!-- Google Analytics 4 — one shared property, three streams -->
+  <!-- Google Analytics 4 — one shared property, two streams -->
   <script>
     (function() {
       var hostname = window.location.hostname;
@@ -45,18 +45,14 @@
 
       var id, env, site;
 
-      if (pathname.indexOf('/demo/') === 0) {
+      if (hostname === 'demo.hashevli.co.il' || pathname.indexOf('/demo/') === 0) {
         id   = 'G-85NSC2WDRP';   // stream: demo
         env  = 'demo';
-        site = 'ondigitalocean-demo';
-      } else if (hostname === 'whale-app-5eqr4.ondigitalocean.app') {
-        id   = 'G-629DK0TLH6';   // stream: ondigitalocean
-        env  = 'staging';
-        site = 'ondigitalocean';
+        site = 'hashevli-demo';
       } else {
-        id   = 'G-1KCLHVEVDZ';   // stream: prod-old
+        id   = 'G-629DK0TLH6';   // stream: prod
         env  = 'production';
-        site = 'hashevli.co.il';
+        site = hostname;
       }
 
       var s = document.createElement('script');
