@@ -319,10 +319,6 @@ def upgrade() -> None:
         "COMMENT ON COLUMN sessions.experiment_flags IS "
         "'A/B experiment variant map, e.g. {\"fee_ui_v2\": \"treatment\"}.'"
     )
-    op.execute(
-        "COMMENT ON COLUMN sessions.consecutive_errors IS "
-        "'Not on sessions — see telegram_identities.'"
-    )
 
 
 def downgrade() -> None:
