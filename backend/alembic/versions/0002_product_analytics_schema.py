@@ -77,7 +77,7 @@ def upgrade() -> None:
     )
     op.execute(
         "COMMENT ON COLUMN users.deleted_at IS "
-        "'Soft-delete timestamp. Non-null means the account is deactivated. '"
+        "'Soft-delete timestamp. Non-null means the account is deactivated. "
         "PII is anonymised 30 days after this is set.'"
     )
 
@@ -194,7 +194,7 @@ def upgrade() -> None:
     )
     op.execute(
         "COMMENT ON TABLE telegram_identities IS "
-        "'Telegram bot connection for a user. Unique by telegram_chat_id. '"
+        "'Telegram bot connection for a user. Unique by telegram_chat_id. "
         "Outbound messages always use telegram_chat_id, never telegram_username.'"
     )
     op.execute(
@@ -300,7 +300,7 @@ def upgrade() -> None:
     )
     op.execute(
         "COMMENT ON TABLE sessions IS "
-        "'One row per GA4 session (keyed by ga_client_id + ga_session_id + environment). '"
+        "'One row per GA4 session (keyed by ga_client_id + ga_session_id + environment). "
         "Carries device, geo, UTM, and experiment context for zero-join analytics.'"
     )
     op.execute(
