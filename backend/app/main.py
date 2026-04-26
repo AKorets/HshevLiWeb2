@@ -9,6 +9,12 @@ from .auth import require_api_key
 from .cache import background_refresh_loop, get_cache
 from .config import settings
 from .database import init_db
+from .routers import sessions as sessions_router
+from .routers import calculations as calculations_router
+from .routers import saved_deals as saved_deals_router
+from .routers import events as events_router
+from .routers import auth as auth_router
+from .routers import telegram as telegram_router
 
 
 logging.basicConfig(
@@ -26,6 +32,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="HshevLi Rates API", lifespan=lifespan)
+
+app.include_router(sessions_router.router)
+app.include_router(calculations_router.router)
+app.include_router(saved_deals_router.router)
+app.include_router(events_router.router)
+app.include_router(auth_router.router)
+app.include_router(telegram_router.router)
 
 app.add_middleware(
     CORSMiddleware,
