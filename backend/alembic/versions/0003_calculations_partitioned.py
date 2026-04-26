@@ -71,10 +71,13 @@ def upgrade() -> None:
         """
     )
 
-    # Unique index on client_request_id (partial: where not null)
+    # Unique index on (client_request_id, created_at). The partition key
+    # (created_at) must be in any UNIQUE index on a partitioned table — see
+    # https://www.postgresql.org/docs/current/ddl-partitioning.html#DDL-PARTITIONING-DECLARATIVE-LIMITATIONS
+    # Trade-off: idempotency only holds within a single monthly partition.
     op.execute(
         "CREATE UNIQUE INDEX uq_calculations_client_request_id "
-        "ON calculations (client_request_id) "
+        "ON calculations (client_request_id, created_at) "
         "WHERE client_request_id IS NOT NULL"
     )
 
