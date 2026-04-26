@@ -79,7 +79,7 @@ async def create_calculation(
             return {"calculation_id": str(row.id), "created": False}
 
     calc_id = uuid_mod.uuid4()
-    await db.execute(
+    insert_result = await db.execute(
         text(
             """
             INSERT INTO calculations (
@@ -95,6 +95,7 @@ async def create_calculation(
                 :is_saved, :ga_client_id, :ga_session_id,
                 :client_calculated_at, :client_request_id, :tab_id, :experiment_flags
             )
+            RETURNING created_at
             """
         ),
         {
@@ -119,20 +120,23 @@ async def create_calculation(
         },
     )
 
+    calc_created_at = insert_result.scalar_one()
+
     for line in body.lines:
         await db.execute(
             text(
                 """
                 INSERT INTO calculation_lines
-                    (calculation_id, line_index, amount, currency,
-                     fee_percent, gross_usdt, fee_usdt, net_usdt)
+                    (calculation_id, calculation_created_at, line_index,
+                     amount, currency, fee_percent, gross_usdt, fee_usdt, net_usdt)
                 VALUES
-                    (:calc_id, :line_index, :amount, :currency,
-                     :fee_percent, :gross_usdt, :fee_usdt, :net_usdt)
+                    (:calc_id, :calc_created_at, :line_index,
+                     :amount, :currency, :fee_percent, :gross_usdt, :fee_usdt, :net_usdt)
                 """
             ),
             {
                 "calc_id": str(calc_id),
+                "calc_created_at": calc_created_at,
                 "line_index": line.line_index,
                 "amount": str(line.amount),
                 "currency": line.currency,

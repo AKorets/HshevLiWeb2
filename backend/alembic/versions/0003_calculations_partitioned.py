@@ -134,10 +134,18 @@ def upgrade() -> None:
     )
 
     # --- calculation_lines ---
+    # Note: calculations is partitioned, so its primary key is (id, created_at).
+    # Foreign keys must reference the full PK — calculation_lines therefore
+    # carries a calculation_created_at column that mirrors its parent's created_at.
     op.create_table(
         "calculation_lines",
         sa.Column("id", sa.BigInteger(), nullable=False, autoincrement=True),
         sa.Column("calculation_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column(
+            "calculation_created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+        ),
         sa.Column("line_index", sa.SmallInteger(), nullable=False),
         sa.Column("amount", sa.Numeric(20, 8), nullable=False),
         sa.Column("currency", sa.Text(), nullable=False),
@@ -147,8 +155,8 @@ def upgrade() -> None:
         sa.Column("net_usdt", sa.Numeric(20, 8), nullable=False),
         sa.PrimaryKeyConstraint("id"),
         sa.ForeignKeyConstraint(
-            ["calculation_id"],
-            ["calculations.id"],
+            ["calculation_id", "calculation_created_at"],
+            ["calculations.id", "calculations.created_at"],
             ondelete="CASCADE",
         ),
     )

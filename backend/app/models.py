@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Integer,
     LargeBinary,
     Numeric,
@@ -158,9 +159,17 @@ class Calculation(Base):
 
 class CalculationLine(Base):
     __tablename__ = "calculation_lines"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["calculation_id", "calculation_created_at"],
+            ["calculations.id", "calculations.created_at"],
+            ondelete="CASCADE",
+        ),
+    )
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    calculation_id = Column(UUID(as_uuid=True), ForeignKey("calculations.id", ondelete="CASCADE"), nullable=False)
+    calculation_id = Column(UUID(as_uuid=True), nullable=False)
+    calculation_created_at = Column(DateTime(timezone=True), nullable=False)
     line_index = Column(SmallInteger, nullable=False)
     amount = Column(Numeric(20, 8), nullable=False)
     currency = Column(Text, nullable=False)
@@ -172,9 +181,17 @@ class CalculationLine(Base):
 
 class SavedDeal(Base):
     __tablename__ = "saved_deals"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["calculation_id", "calculation_created_at"],
+            ["calculations.id", "calculations.created_at"],
+            ondelete="RESTRICT",
+        ),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    calculation_id = Column(UUID(as_uuid=True), ForeignKey("calculations.id", ondelete="RESTRICT"), nullable=False)
+    calculation_id = Column(UUID(as_uuid=True), nullable=False)
+    calculation_created_at = Column(DateTime(timezone=True), nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
     session_id = Column(UUID(as_uuid=True), ForeignKey("sessions.id", ondelete="RESTRICT"), nullable=False)
     deal_type = Column(Text, nullable=False, server_default="exchange")

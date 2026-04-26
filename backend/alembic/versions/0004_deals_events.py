@@ -47,6 +47,13 @@ def upgrade() -> None:
             server_default=sa.text("gen_random_uuid()"),
         ),
         sa.Column("calculation_id", postgresql.UUID(as_uuid=True), nullable=False),
+        # Mirrors calculations.created_at — required because calculations is
+        # partitioned and the FK must reference the full PK (id, created_at).
+        sa.Column(
+            "calculation_created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+        ),
         sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("session_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("deal_type", sa.Text(), nullable=False, server_default="exchange"),
@@ -65,7 +72,9 @@ def upgrade() -> None:
         sa.Column("note", sa.Text(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
         sa.ForeignKeyConstraint(
-            ["calculation_id"], ["calculations.id"], ondelete="RESTRICT"
+            ["calculation_id", "calculation_created_at"],
+            ["calculations.id", "calculations.created_at"],
+            ondelete="RESTRICT",
         ),
         sa.ForeignKeyConstraint(
             ["user_id"], ["users.id"], ondelete="RESTRICT"

@@ -38,17 +38,28 @@ async def create_saved_deal(
     body: SavedDealIn,
     db: AsyncSession = Depends(_get_session),
 ):
+    # Resolve the parent calculation's created_at — required because saved_deals
+    # carries the partition key alongside the calculation_id (composite FK).
+    parent = await db.execute(
+        text("SELECT created_at FROM calculations WHERE id = :calc_id"),
+        {"calc_id": body.calculation_id},
+    )
+    parent_row = parent.fetchone()
+    if not parent_row:
+        raise HTTPException(404, f"calculation {body.calculation_id} not found")
+    calc_created_at = parent_row.created_at
+
     deal_id = uuid_mod.uuid4()
     await db.execute(
         text(
             """
             INSERT INTO saved_deals (
-                id, calculation_id, user_id, session_id, deal_type,
+                id, calculation_id, calculation_created_at, user_id, session_id, deal_type,
                 headline_sell_currency, headline_buy_currency,
                 headline_sell_amount, headline_receive_amount,
                 tax_percent, note
             ) VALUES (
-                :id, :calculation_id, :user_id, :session_id, :deal_type,
+                :id, :calculation_id, :calculation_created_at, :user_id, :session_id, :deal_type,
                 :headline_sell_currency, :headline_buy_currency,
                 :headline_sell_amount, :headline_receive_amount,
                 :tax_percent, :note
@@ -58,6 +69,7 @@ async def create_saved_deal(
         {
             "id": str(deal_id),
             "calculation_id": body.calculation_id,
+            "calculation_created_at": calc_created_at,
             "user_id": body.user_id,
             "session_id": body.session_id,
             "deal_type": body.deal_type,
