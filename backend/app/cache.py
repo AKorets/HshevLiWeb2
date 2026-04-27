@@ -20,6 +20,7 @@ class RatesCache:
         self.rates: dict[str, float] = {}
         self.fetched_at: datetime = datetime.min.replace(tzinfo=timezone.utc)
         self.last_fetch_error: str | None = None
+        self.snapshot_id: int | None = None
         self._lock = asyncio.Lock()
 
     @property
@@ -40,6 +41,7 @@ class RatesCache:
             "fetched_at": self.fetched_at,
             "is_fresh": self.is_fresh,
             "last_fetch_error": self.last_fetch_error,
+            "snapshot_id": self.snapshot_id,
         }
 
     async def fetch(self) -> bool:
@@ -71,12 +73,15 @@ class RatesCache:
             from .database import get_session_factory
             session_factory = get_session_factory()
             async with session_factory() as session:
-                session.add(RateSnapshot(
+                snapshot = RateSnapshot(
                     ils_to_usdt=self.ils_to_usdt,
                     usd_to_usdt=self.usd_to_usdt,
                     euro_to_usdt=self.euro_to_usdt,
                     fetched_at=self.fetched_at,
-                ))
+                )
+                session.add(snapshot)
+                await session.flush()
+                self.snapshot_id = snapshot.id
                 await session.commit()
         except Exception:
             pass
