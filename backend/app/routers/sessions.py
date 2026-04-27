@@ -1,6 +1,7 @@
 """POST /sessions/heartbeat — upsert session from request headers."""
 
 from __future__ import annotations
+import json
 import logging
 import os
 import uuid
@@ -150,7 +151,7 @@ async def heartbeat(
                 :device_type, :os_family, :browser_family,
                 :screen_width, :screen_height, :viewport_width, :viewport_height,
                 :device_pixel_ratio, :cpu_cores, :device_memory_gb,
-                :country_code, :city, :isp, :connection_type, :experiment_flags,
+                :country_code, :city, :isp, :connection_type, CAST(:experiment_flags AS JSONB),
                 :scroll_depth_percent, :time_to_first_action_ms, :hesitation_before_calc_ms,
                 now(), now()
             )
@@ -194,7 +195,11 @@ async def heartbeat(
             "city": geo.city if geo else None,
             "isp": geo.isp if geo else None,
             "connection_type": dc.connection_type if dc else None,
-            "experiment_flags": body.experiment_flags,
+            # asyncpg requires JSONB to be JSON-encoded; CAST in SQL above.
+            "experiment_flags": (
+                json.dumps(body.experiment_flags)
+                if body.experiment_flags is not None else None
+            ),
             "scroll_depth_percent": body.scroll_depth_percent,
             "time_to_first_action_ms": body.time_to_first_action_ms,
             "hesitation_before_calc_ms": body.hesitation_before_calc_ms,

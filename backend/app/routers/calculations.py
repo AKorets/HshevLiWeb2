@@ -1,6 +1,7 @@
 """POST /calculations — idempotent calculation ingest."""
 
 from __future__ import annotations
+import json
 import logging
 import uuid as uuid_mod
 from datetime import datetime
@@ -93,7 +94,7 @@ async def create_calculation(
                 :total_gross_usdt, :total_fee_usdt, :total_net_usdt,
                 :ils_equivalent, :above_min_threshold, :currencies,
                 :is_saved, :ga_client_id, :ga_session_id,
-                :client_calculated_at, :client_request_id, :tab_id, :experiment_flags
+                :client_calculated_at, :client_request_id, :tab_id, CAST(:experiment_flags AS JSONB)
             )
             RETURNING created_at
             """
@@ -116,7 +117,12 @@ async def create_calculation(
             "client_calculated_at": body.client_calculated_at,
             "client_request_id": body.client_request_id,
             "tab_id": body.tab_id,
-            "experiment_flags": body.experiment_flags,
+            # asyncpg requires JSONB to be JSON-encoded; explicit CAST in SQL
+            # because text→jsonb has no implicit cast.
+            "experiment_flags": (
+                json.dumps(body.experiment_flags)
+                if body.experiment_flags is not None else None
+            ),
         },
     )
 

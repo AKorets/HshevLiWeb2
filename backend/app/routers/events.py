@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import asyncio
+import json
 import logging
 from datetime import datetime
 
@@ -59,11 +60,13 @@ async def ingest_event(
             )
 
     tab_id = body.tab_id or x_tab_id
+    # asyncpg requires JSONB to be a JSON-encoded string; the explicit CAST
+    # pins the column type since text→jsonb has no implicit cast.
     result = await db.execute(
         text(
             """
             INSERT INTO user_events (session_id, user_id, event_name, event_params, occurred_at, tab_id)
-            VALUES (:session_id, :user_id, :event_name, :event_params, COALESCE(:occurred_at, now()), :tab_id)
+            VALUES (:session_id, :user_id, :event_name, CAST(:event_params AS JSONB), COALESCE(:occurred_at, now()), :tab_id)
             RETURNING id
             """
         ),
@@ -71,7 +74,7 @@ async def ingest_event(
             "session_id": body.session_id,
             "user_id": body.user_id,
             "event_name": body.event_name,
-            "event_params": body.event_params,
+            "event_params": json.dumps(body.event_params),
             "occurred_at": body.occurred_at,
             "tab_id": tab_id,
         },
@@ -116,9 +119,9 @@ async def _backfill_followed_by_calculate(
                 updated_params = {**event_params, "followed_by_calculate": True}
                 await db.execute(
                     text(
-                        "UPDATE user_events SET event_params = :params WHERE id = :id"
+                        "UPDATE user_events SET event_params = CAST(:params AS JSONB) WHERE id = :id"
                     ),
-                    {"params": updated_params, "id": event_id},
+                    {"params": json.dumps(updated_params), "id": event_id},
                 )
                 await db.commit()
                 logger.info("Backfilled followed_by_calculate=true for event_id=%d", event_id)
