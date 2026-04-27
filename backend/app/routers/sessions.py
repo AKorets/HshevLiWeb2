@@ -37,6 +37,9 @@ class HeartbeatRequest(BaseModel):
     scroll_depth_percent: int | None = None
     time_to_first_action_ms: int | None = None
     hesitation_before_calc_ms: int | None = None
+    # Client-reported environment — more reliable than host-header sniffing
+    # through DO App Platform's internal proxy which rewrites Host.
+    environment: str | None = None
 
 
 async def _get_session() -> AsyncSession:
@@ -69,7 +72,7 @@ async def heartbeat(
     ga_client_id = _require_ga_header(x_ga_client_id, "X-GA-Client-Id")
     ga_session_id = _require_ga_header(x_ga_session_id, "X-GA-Session-Id")
 
-    environment = _detect_environment(request)
+    environment = body.environment or _detect_environment(request)
     client_ip = _get_client_ip(request)
     ip_hash_bytes = hash_ip(client_ip) if client_ip else None
     geo = geo_lookup(client_ip) if client_ip else None
