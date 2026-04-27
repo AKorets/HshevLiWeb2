@@ -212,7 +212,13 @@ async def heartbeat(
 
 
 def _detect_environment(request: Request) -> str:
-    host = request.headers.get("host", "")
+    # DO App Platform rewrites the Host header to the internal service hostname
+    # (contains "ondigitalocean"), so check X-Forwarded-Host first — that
+    # carries the browser-visible domain (e.g. hashevli.co.il).
+    host = (
+        request.headers.get("X-Forwarded-Host")
+        or request.headers.get("host", "")
+    )
     if "demo" in host:
         return "demo"
     if "staging" in host or "ondigitalocean" in host:
