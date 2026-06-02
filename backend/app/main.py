@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .app_settings import ensure_default
 from .auth import require_api_key
 from .cache import background_refresh_loop, get_cache
 from .config import settings
@@ -27,6 +28,7 @@ logging.basicConfig(
 async def lifespan(app: FastAPI):
     if settings.database_url:
         init_db(settings.database_url)
+        await ensure_default("rates_fallback", "true")
     asyncio.create_task(background_refresh_loop())
     yield
 

@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 
-from .config import settings
+from . import app_settings
 from .models import RateSnapshot
 from .xe_service import fetch_rates_from_fallback, fetch_rates_from_xe
 
@@ -47,7 +47,8 @@ class RatesCache:
     async def fetch(self) -> bool:
         """Fetch rates, update in-memory cache, and persist to DB. Returns True on success."""
         async with self._lock:
-            if settings.rates_fallback:
+            use_fallback = await app_settings.get_bool("rates_fallback", default=True)
+            if use_fallback:
                 rates, error = await fetch_rates_from_fallback()
             else:
                 rates, error = await fetch_rates_from_xe()

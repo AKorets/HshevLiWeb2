@@ -240,3 +240,11 @@ class UserMerge(Base):
     to_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
     merge_reason = Column(Text, nullable=False, server_default="oauth_link")
     merged_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class AppSetting(Base):
+    __tablename__ = "app_settings"
+
+    key = Column(Text, primary_key=True)
+    value = Column(Text, nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
