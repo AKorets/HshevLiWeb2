@@ -51,7 +51,7 @@ class RatesCache:
             if use_fallback:
                 rates, error = await fetch_rates_from_fallback()
             else:
-                rates, error = await fetch_rates_from_xe()
+                rates, error = await fetch_rates_from_xe(refresh_interval_seconds=CACHE_FRESH_SECONDS)
             if rates is None:
                 self.last_fetch_error = error
                 logger.error("Cache refresh failed: %s", error)
