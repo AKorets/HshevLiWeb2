@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .app_settings import ensure_default
 from .auth import require_api_key
-from .cache import background_refresh_loop, get_cache
+from .cache import get_cache
 from .config import settings
 from .database import init_db
 from .routers import sessions as sessions_router
@@ -29,7 +29,7 @@ async def lifespan(app: FastAPI):
     if settings.database_url:
         init_db(settings.database_url)
         await ensure_default("rates_fallback", "true")
-    asyncio.create_task(background_refresh_loop())
+    asyncio.create_task(get_cache().fetch())  # warm up cache on startup
     yield
 
 
@@ -71,7 +71,9 @@ async def get_currencies() -> dict:
 
 @app.get("/rates/current", dependencies=[Depends(require_api_key)])
 async def get_current_rates() -> dict:
-    return get_cache().snapshot()
+    cache = get_cache()
+    await cache.ensure_fresh()
+    return cache.snapshot()
 
 
 @app.post("/rates/refresh", dependencies=[Depends(require_api_key)])

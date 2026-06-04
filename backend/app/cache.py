@@ -8,7 +8,7 @@ from .xe_service import fetch_rates_from_fallback, fetch_rates_from_xe
 
 logger = logging.getLogger(__name__)
 
-CACHE_FRESH_SECONDS = 300   # auto-refresh every 5 minutes
+CACHE_FRESH_SECONDS = 300   # freshness window for lazy-refresh
 REFRESH_GUARD_SECONDS = 60  # minimum interval for manual refresh
 
 
@@ -44,29 +44,42 @@ class RatesCache:
             "snapshot_id": self.snapshot_id,
         }
 
+    async def _do_fetch_locked(self) -> bool:
+        """Perform the actual fetch + persist. Must be called with _lock held."""
+        use_fallback = await app_settings.get_bool("rates_fallback", default=True)
+        if use_fallback:
+            rates, error = await fetch_rates_from_fallback()
+        else:
+            rates, error = await fetch_rates_from_xe(refresh_interval_seconds=CACHE_FRESH_SECONDS)
+        if rates is None:
+            self.last_fetch_error = error
+            logger.error("Cache refresh failed: %s", error)
+            return False
+
+        self.ils_to_usdt = rates["ils_to_usdt"]
+        self.usd_to_usdt = rates["usd_to_usdt"]
+        self.euro_to_usdt = rates["euro_to_usdt"]
+        self.rates = rates.get("rates", {})
+        self.fetched_at = datetime.now(timezone.utc)
+        self.last_fetch_error = None
+
+        await self._persist()
+        logger.info("Cache refreshed at %s", self.fetched_at.isoformat())
+        return True
+
     async def fetch(self) -> bool:
-        """Fetch rates, update in-memory cache, and persist to DB. Returns True on success."""
+        """Force a fetch regardless of freshness. Returns True on success."""
         async with self._lock:
-            use_fallback = await app_settings.get_bool("rates_fallback", default=True)
-            if use_fallback:
-                rates, error = await fetch_rates_from_fallback()
-            else:
-                rates, error = await fetch_rates_from_xe(refresh_interval_seconds=CACHE_FRESH_SECONDS)
-            if rates is None:
-                self.last_fetch_error = error
-                logger.error("Cache refresh failed: %s", error)
-                return False
+            return await self._do_fetch_locked()
 
-            self.ils_to_usdt = rates["ils_to_usdt"]
-            self.usd_to_usdt = rates["usd_to_usdt"]
-            self.euro_to_usdt = rates["euro_to_usdt"]
-            self.rates = rates.get("rates", {})
-            self.fetched_at = datetime.now(timezone.utc)
-            self.last_fetch_error = None
-
-            await self._persist()
-            logger.info("Cache refreshed at %s", self.fetched_at.isoformat())
-            return True
+    async def ensure_fresh(self) -> None:
+        """Fetch only if the cache is stale. Safe under concurrent requests."""
+        if self.is_fresh:
+            return
+        async with self._lock:
+            if self.is_fresh:  # another waiter may have refreshed while we blocked
+                return
+            await self._do_fetch_locked()
 
     async def _persist(self) -> None:
         """Write snapshot to PostgreSQL (best-effort — DB failure doesn't break in-memory cache)."""
@@ -106,10 +119,3 @@ _cache = RatesCache()
 
 def get_cache() -> RatesCache:
     return _cache
-
-
-async def background_refresh_loop() -> None:
-    """Auto-refresh rates every 5 minutes in the background."""
-    while True:
-        await _cache.fetch()
-        await asyncio.sleep(CACHE_FRESH_SECONDS)
